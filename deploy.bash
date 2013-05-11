@@ -1,11 +1,23 @@
 #! /bin/bash
 
-cd=${PWD##*/} 
+cd_name=${PWD##*/} 
+git_dir=`pwd`
+
+# determine where to create SVN repository
+[ -f ./svn_dir ] && svn_dir=$(<./svn_dir)
+if [ -z "$svn_dir" -o ! -d "$svn_dir" ]; then
+    echo "Please enter the name of the folder to use for the SVN repository: "
+    read svn_dir;
+    mkdir "$svn_dir"
+    echo "$svn_dir">./svn_dir
+fi
+
+cd "$svn_dir"
 
 # determine slug
 [ -f ./slug ] && slug=$(<./slug)
 if [ -z $slug ]; then
-    slug="$cd"
+    slug="$cd_name"
     echo "Is your SVN slug \"$slug\"?"
     select yn in "Yes" "No"; do
         case $yn in
@@ -27,7 +39,7 @@ fi
 # determine main file
 [ -f ./mainfile ] && mainfile=$(<./mainfile)
 if [ -z "$mainfile" ]; then
-    [ -f "$cd.php" ] && mainfile="$cd.php"
+    [ -f "../$cd_name.php" ] && mainfile="$cd_name.php"
     echo "Is the plugin's main file \"$mainfile\"?"
     select yn in "Yes" "No"; do
         case $yn in
