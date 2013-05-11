@@ -60,4 +60,23 @@ echo "readme version: $readme_version"
 echo "main php version: $main_file_version"
 [ "$readme_version" != "$main_file_version" ] && { echo "Versions don't match. Exiting..."; exit 2; }
 
+# tag and push git to origin
+cd "$git_dir"
+echo "Creating new git tag: $readme_version"
+#git tag -a "$readme_version" -m"Version $readme_version"
+echo "Pushing latest commit to origin, with tags"
+#git push origin master
+#git push origin master --tags
 
+# update SVN trunk and create SVN tag
+[ ! "$(cd $svn_dir; svn info)" ] && { echo "Not a SVN repo - checking out from $svn_url..."; svn co "$svn_url" "$svn_dir"; }
+
+# it's a SVN repo with latest from SVN origin - assuming latest is behind local git
+
+# copy all the files
+
+# svn commit
+
+# generate SVN tag
+
+# push SVN changes
