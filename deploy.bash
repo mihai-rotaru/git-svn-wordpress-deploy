@@ -36,7 +36,7 @@ if [ -z $username ]; then
     echo "$username">./username
 fi
 
-# determine main file
+# determine main plugin file
 [ -f ./mainfile ] && mainfile=$(<./mainfile)
 if [ -z "$mainfile" ]; then
     [ -f "../$cd_name.php" ] && mainfile="$cd_name.php"
@@ -47,7 +47,17 @@ if [ -z "$mainfile" ]; then
             No ) echo -e "Enter main file's name: \c"; read mainfile; break;;
         esac
     done
+    [ ! -f "../$mainfile" ] && { echo "File \"$mainfile\" not found. Exiting..."; exit 1; }
     echo "$mainfile">./mainfile
 fi
+
+svn_url="http://plugins.svn.wordpress.org/$slug/"
+
+# make sure versions in readme.txt and main php file match
+readme_version=$(grep "^Stable tag" $git_dir/readme.txt | awk -F' ' '{print $3}')
+main_file_version=$(grep "^Version" $git_dir/$mainfile | awk -F' ' '{print $2}')
+echo "readme version: $readme_version"
+echo "main php version: $main_file_version"
+[ "$readme_version" != "$main_file_version" ] && { echo "Versions don't match. Exiting..."; exit 2; }
 
 
