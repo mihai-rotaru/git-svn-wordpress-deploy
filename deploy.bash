@@ -63,20 +63,24 @@ echo "main php version: $main_file_version"
 # tag and push git to origin
 cd "$git_dir"
 echo "Creating new git tag: $readme_version"
-#git tag -a "$readme_version" -m"Version $readme_version"
+git tag -a "$readme_version" -m"Version $readme_version"
 echo "Pushing latest commit to origin, with tags"
-#git push origin master
-#git push origin master --tags
+git push origin master
+git push origin master --tags
 
-# update SVN trunk and create SVN tag
-[ ! "$(cd $svn_dir; svn info)" ] && { echo "Not a SVN repo - checking out from $svn_url..."; svn co "$svn_url" "$svn_dir"; }
+# make sure SVN repository is checked out
+[ ! "$(cd $svn_dir; svn info >/dev/null 2>&1)" ] && { echo "$svn_dir does not contain a SVN repo - checking out from $svn_url..."; svn co "$svn_url" "$svn_dir"; }
 
-# it's a SVN repo with latest from SVN origin - assuming latest is behind local git
-
-# copy all the files
-
-# svn commit
+# update SVN trunk
+echo "Copying git HEAD into SVN trunk, and SVN add new/modified files..."
+git checkout-index -a -f --prefix="$svn_dir/trunk/"
+cd "$svn_dir/trunk"
+svn status | grep "^?" | awk '{print $2}' | xargs svn add
+svn commit --username=$username -m "Version $readme_version"
 
 # generate SVN tag
-
-# push SVN changes
+cd ..
+echo $(pwd)
+svn copy trunk/ "tags/$readme_version"
+cd "tags/$readme_version"
+svn commit --username=$username -m "Version $readme_version"
