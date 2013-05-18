@@ -1,5 +1,7 @@
 #! /bin/bash
 
+set -o xtrace
+
 cd_name=${PWD##*/} 
 git_dir=`pwd`
 
@@ -64,7 +66,7 @@ echo "main php version: $main_file_version"
 cd "$git_dir"
 echo "Creating new git tag: $readme_version"
 git tag -a "$readme_version" -m"Version $readme_version"
-echo "Pushing latest commit to origin, with tags"
+echo "Pushing latest commit to git origin, with tags"
 git push origin master
 git push origin master --tags
 
@@ -76,11 +78,16 @@ echo "Copying git HEAD into SVN trunk, and SVN add new/modified files..."
 git checkout-index -a -f --prefix="$svn_dir/trunk/"
 cd "$svn_dir/trunk"
 svn status | grep "^?" | awk '{print $2}' | xargs svn add
-svn commit --username=$username -m "Version $readme_version"
+
+# commit message - all git commit messages since latest tag - or first commit, if no tags
+$from=$(git describe --abbrev=0 --tags)
+[ ! $? ] && $from=$(git log --format=%H | tail -1)
+git log --pretty=oneline $(git describe --abbrev=0 --tags).. | cut -d " " -f 2- >message.txt
+svn commit --username=$username --file message.txt
+rm message.txt
 
 # generate SVN tag
 cd ..
-echo $(pwd)
 svn copy trunk/ "tags/$readme_version"
 cd "tags/$readme_version"
 svn commit --username=$username -m "Version $readme_version"
