@@ -3,7 +3,9 @@
 set -o xtrace
 
 cd_name=${PWD##*/} 
-git_dir=`pwd`
+cd_full_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+git_dir="$cd_full_path/.git"
+[ ! -d "$git_dir" ] && { echo "This directory does not contain a git repository; exiting..."; exit 1; }
 
 # determine where to create SVN repository
 [ -f ./svn_dir ] && svn_dir=$(<./svn_dir)
@@ -56,38 +58,49 @@ fi
 svn_url="http://plugins.svn.wordpress.org/$slug/"
 
 # make sure versions in readme.txt and main php file match
-readme_version=$(grep "^Stable tag" $git_dir/readme.txt | awk -F' ' '{print $3}')
-main_file_version=$(grep "^Version" $git_dir/$mainfile | awk -F' ' '{print $2}')
+readme_version=$(grep "^Stable tag" $cd_full_path/readme.txt | awk -F' ' '{print $3}')
+main_file_version=$(grep "^Version" $cd_full_path/$mainfile | awk -F' ' '{print $2}')
 echo "readme version: $readme_version"
 echo "main php version: $main_file_version"
 [ "$readme_version" != "$main_file_version" ] && { echo "Versions don't match. Exiting..."; exit 2; }
 
+# make sure SVN repository is checked out
+cd "$cd_full_path"
+if [ "$(cd $svn_dir; svn info >/dev/null 2>&1; echo $?)" -ne 0 ]; then
+    echo "$svn_dir does not contain a SVN repo - checking out from $svn_url..."
+    svn co "$svn_url" "$svn_dir"
+    [ $? -ne 0 ] && { echo "Looks like SVN URL is wrong ($svn_url), please make sure the wordpress slug is correct."; exit 3; }
+fi
+
+# commit message - all git commit messages since latest tag - or first commit, if no tags
+cd "$cd_full_path"
+from=$(git describe --abbrev=0 --tags 2>&1)
+[ $? -ne 0 ] && from=$(git log --format=%H | tail -1)
+git log --pretty=oneline $from.. | cut -d " " -f 2- >$svn_dir/message.txt
+
 # tag and push git to origin
-cd "$git_dir"
 echo "Creating new git tag: $readme_version"
 git tag -a "$readme_version" -m"Version $readme_version"
 echo "Pushing latest commit to git origin, with tags"
-git push origin master
-git push origin master --tags
-
-# make sure SVN repository is checked out
-[ ! "$(cd $svn_dir; svn info >/dev/null 2>&1)" ] && { echo "$svn_dir does not contain a SVN repo - checking out from $svn_url..."; svn co "$svn_url" "$svn_dir"; }
+#git push origin master
+#git push origin master --tags
 
 # update SVN trunk
 echo "Copying git HEAD into SVN trunk, and SVN add new/modified files..."
 git checkout-index -a -f --prefix="$svn_dir/trunk/"
-cd "$svn_dir/trunk"
-svn status | grep "^?" | awk '{print $2}' | xargs svn add
-
-# commit message - all git commit messages since latest tag - or first commit, if no tags
-$from=$(git describe --abbrev=0 --tags)
-[ ! $? ] && $from=$(git log --format=%H | tail -1)
-git log --pretty=oneline $(git describe --abbrev=0 --tags).. | cut -d " " -f 2- >message.txt
-svn commit --username=$username --file message.txt
-rm message.txt
+cd "$cd_full_path/$svn_dir/trunk"
+if [ -n "$(svn status)" ]; then
+    [ -n "$(svn status | grep '^?')" ] && svn status | grep "^?" | awk '{print $2}' | xargs svn add
+fi
+$(svn commit --username=$username --file ../message.txt)
 
 # generate SVN tag
-cd ..
-svn copy trunk/ "tags/$readme_version"
-cd "tags/$readme_version"
-svn commit --username=$username -m "Version $readme_version"
+cd "$cd_full_path/$svn_dir"
+[ ! -d tags ] && mkdir tags
+if [ ! -d "tags/$readme_version" ]; then
+    svn copy trunk/ "tags/$readme_version/"
+    cd "$cd_full_path/$svn_dir/tags/$readme_version"
+    $(svn commit --username=$username -m "Version $readme_version")
+else
+    echo "Tag $readme_version already exists - not overrwriting."
+fi
