@@ -1,0 +1,9 @@
+[WARNING]
+This script uses many bash-specific features, and will _not_ work with other shells.
+
+== Introduction
+The idea is to create an additional folder in the project root, where the SVN repository will be generated.
+
+== Features
+- remembers options (such as where the SVN folder is, slug, etc) so you don't have to enter them every time
+- automatically generates a SVN commit message form all git commit messages since last tag
